@@ -20,7 +20,9 @@ import uvicorn
 
 def main():
     host = os.getenv("API_HOST", "127.0.0.1")
-    port = int(os.getenv("API_PORT", "8010"))
+
+    # Render (and most PaaS hosts) inject the port to bind as $PORT.
+    port = int(os.getenv("PORT") or os.getenv("API_PORT", "8010"))
     reload_enabled = os.getenv("API_RELOAD", "").lower() in {"1", "true", "yes"}
 
     print(f"Resume Job Agent API -> http://{host}:{port}")

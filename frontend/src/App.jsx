@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 
+// In production the FastAPI server serves this build itself, so requests
+// go to the same origin and need no host prefix. In dev the API lives on
+// its own port. VITE_API_URL overrides both.
+const ENV_API_URL = import.meta.env.VITE_API_URL;
+
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8010";
+  ENV_API_URL !== undefined && ENV_API_URL !== ""
+    ? ENV_API_URL
+    : import.meta.env.PROD
+      ? ""
+      : "http://127.0.0.1:8010";
 
 /**
  * Read a JSON response, surfacing FastAPI's `detail` as the error text.

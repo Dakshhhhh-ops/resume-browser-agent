@@ -1,0 +1,30 @@
+# Vendored WebCMD source — the CLI is installed from npm instead.
+# Copying this would add hundreds of megabytes to the build context.
+webcmd/
+
+# Dependencies and build output (rebuilt inside the image)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Secrets and local state
+.env
+.env.local
+uploads/
+applications_store.json
+workflow_store.json
+*.db
+
+# Personal documents — never bake a resume into an image
+*.pdf
+
+# VCS and editor noise
+.git/
+.gitignore
+.vscode/
+.idea/
+*.log

@@ -1,0 +1,39 @@
+# Render blueprint — one web service serving both the API and the UI.
+#
+# Deploy: push this repo, then on render.com choose
+# New > Blueprint and point it at the repository. Render reads this file,
+# builds the Dockerfile, and prompts for the secrets marked sync:false.
+services:
+  - type: web
+    name: resume-job-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # The browser agent needs real memory for Chromium; the free plan
+    # (512 MB) can run parse/discover/rank but will struggle to apply.
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Required — set this in the Render dashboard, never commit it.
+      - key: GROQ_API_KEY
+        sync: false
+
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+
+      - key: GREENHOUSE_COMPANY_SLUGS
+        value: airbnb,stripe,figma,dropbox,anthropic
+
+      # Applicant details used when filling forms. Use your FULL name —
+      # a single word leaves the required surname field as ".".
+      - key: APPLICANT_NAME
+        sync: false
+      - key: APPLICANT_EMAIL
+        sync: false
+      - key: APPLICANT_PHONE
+        sync: false
+
+      # The UI is served from this same service, so no cross-origin
+      # requests occur and no CORS origins need listing.
+      - key: API_HOST
+        value: 0.0.0.0

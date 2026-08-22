@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
 import os
@@ -233,15 +234,32 @@ def summarise_profile(profile: dict) -> dict:
 
 
 # ============================================================
+# FRONTEND BUILD
+#
+# In a deployed (single-service) setup this server also serves
+# the compiled React app, so the UI and API share an origin and
+# no CORS configuration is needed. Locally, where the frontend
+# runs on the Vite dev server, there is no dist/ and "/" falls
+# back to a plain status payload.
+# ============================================================
+
+FRONTEND_DIST = os.path.join(ROOT_DIR, "frontend", "dist")
+
+SERVE_FRONTEND = os.path.isdir(FRONTEND_DIST)
+
+
+# ============================================================
 # ROOT
 # ============================================================
 
-@app.get("/")
-def root():
-    return {
-        "success": True,
-        "message": "Resume Browser Agent API is running",
-    }
+if not SERVE_FRONTEND:
+
+    @app.get("/")
+    def root():
+        return {
+            "success": True,
+            "message": "Resume Browser Agent API is running",
+        }
 
 
 # ============================================================
@@ -521,3 +539,18 @@ def apply_to_job(payload: dict):
         "verification": result.get("verification"),
         "application": application,
     }
+
+
+# ============================================================
+# STATIC FRONTEND (mounted last)
+#
+# Registered after every /api route so those keep priority;
+# html=True makes "/" resolve to index.html.
+# ============================================================
+
+if SERVE_FRONTEND:
+    app.mount(
+        "/",
+        StaticFiles(directory=FRONTEND_DIST, html=True),
+        name="frontend",
+    )

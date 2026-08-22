@@ -111,6 +111,42 @@ CAPTCHA detection also halts automation rather than trying to work around it.
 
 ---
 
+## Deploying
+
+The repo ships a single-service setup: FastAPI serves the API **and** the
+compiled React app, so there is one URL and no CORS configuration.
+
+On [Render](https://render.com): **New → Blueprint**, point it at this repo.
+It reads `render.yaml`, builds the `Dockerfile`, and prompts for the secrets
+(`GROQ_API_KEY`, `APPLICANT_*`). Set those and deploy.
+
+To check the image locally first:
+
+```bash
+docker build -t resume-job-agent .
+docker run -p 8010:8010 --env-file .env resume-job-agent
+# open http://localhost:8010
+```
+
+The image is based on `mcr.microsoft.com/playwright` because the browser
+agent drives a real Chromium — `webcmd` depends on `playwright-core`, which
+ships no browser of its own.
+
+Whenever `frontend/dist/` exists the server mounts it at `/`; otherwise `/`
+returns a JSON status payload and you use the Vite dev server instead. So the
+same code runs both locally and deployed with no changes.
+
+**What does not survive deployment:**
+
+- **Applying to jobs.** It needs Chromium and 60–120s per run. Render's free
+  plan (512 MB) cannot hold a browser, so use `starter` or larger — and
+  expect reCAPTCHA to score a datacenter IP far more harshly than your
+  laptop. Treat applying as a local-first feature.
+- **Uploaded resumes and the application log.** `uploads/` and
+  `applications_store.json` live on the container filesystem, which most
+  PaaS hosts wipe on every deploy and restart. Move them to object storage
+  or a database if you need them to persist.
+
 ## Project layout
 
 ```
