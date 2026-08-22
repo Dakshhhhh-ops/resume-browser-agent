@@ -1,0 +1,5 @@
+groq
+pdfplumber
+requests
+rich
+python-dotenv
