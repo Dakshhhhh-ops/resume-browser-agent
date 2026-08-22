@@ -182,7 +182,16 @@ def main():
             sys.exit(0)
 
     from browser_agent import run_browser_agent
-    run_browser_agent(selected, resume, pdf_path)
+    result = run_browser_agent(selected, resume, pdf_path)
+
+    if result.get("success"):
+        rprint(f"\n[bold green]{result.get('message')}[/bold green]")
+    else:
+        rprint(
+            f"\n[bold red]Not submitted[/bold red] "
+            f"([dim]{result.get('stage')}[/dim]): {result.get('message')}"
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":
