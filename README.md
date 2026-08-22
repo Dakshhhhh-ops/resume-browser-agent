@@ -211,20 +211,33 @@ never travel to the browser and back. On a cold server it fetches on demand.
 The repo ships a single-service setup: FastAPI serves the API **and** the compiled React
 app, so there's one URL and no CORS configuration.
 
-On [Render](https://render.com): **New → Blueprint**, point it at this repo. It reads
-`render.yaml`, builds the `Dockerfile`, and prompts for your secrets.
+No Docker and no Node are needed at deploy time. `frontend/dist/` is built locally and
+**committed to the repo**, so the server only has to serve it.
 
-To check the image locally first:
+On [Render](https://render.com): **New → Blueprint**, point it at this repo, and set
+`GROQ_API_KEY` when prompted. Or configure a Python service by hand:
+
+| Setting | Value |
+| --- | --- |
+| Runtime | Python 3 |
+| Build command | `pip install -r backend/requirements.txt` |
+| Start command | `python run_server.py` |
+
+The server binds `0.0.0.0` automatically whenever the host provides `$PORT`, and
+loopback otherwise.
+
+**After changing anything in `frontend/src/`, rebuild and commit the output:**
 
 ```bash
-docker build -t resume-job-agent .
-docker run -p 8010:8010 --env-file .env resume-job-agent
+cd frontend && npm run build && cd ..
+git add frontend/dist && git commit -m "Rebuild UI"
 ```
 
-The image is based on `mcr.microsoft.com/playwright` because the agent drives a real
-Chromium — `webcmd` depends on `playwright-core`, which bundles no browser of its own.
 Whenever `frontend/dist/` exists the server mounts it at `/`; otherwise `/` returns a
 JSON status payload and you use the Vite dev server. The same code runs both ways.
+
+A `Dockerfile` is also included if you'd rather deploy a container — it needs a paid
+instance, but it bundles Chromium so the apply step works there too.
 
 ---
 

@@ -1,46 +1,54 @@
 # Single-service image: FastAPI serves the API *and* the built React app.
 #
-# Based on the Playwright image because the WebCMD browser agent drives a
-# real Chromium (webcmd depends on playwright-core, which ships no browser
-# of its own). This base already has Chromium plus every system library it
-# needs, which is the fiddly part to get right on a bare Python image.
-FROM mcr.microsoft.com/playwright:v1.49.1-jammy
+# Deliberately does NOT bundle Chromium. The browser agent needs a real
+# browser and 60-120s per application, which no free-tier instance can
+# hold, so the deployed service covers parsing, discovery and ranking.
+# /api/apply returns a clear "webcmd is not installed" error there, and
+# applying is run locally instead. See "Limitations" in the README.
+#
+# To build an image that CAN apply, use the Playwright base instead:
+#   FROM mcr.microsoft.com/playwright:v1.49.1-jammy
+# then install python3 and `npm i -g @agentrhq/webcmd`. Needs ~2GB and
+# a paid instance.
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1 \
+# ---- Stage 1: build the frontend ------------------------------------
+FROM node:20-alpine AS frontend
+
+WORKDIR /build
+
+# Dependencies first so edits to src/ don't reinstall node_modules.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+# Empty VITE_API_URL => the app calls its own origin, which this serves.
+RUN VITE_API_URL= npm run build
+
+
+# ---- Stage 2: python runtime ----------------------------------------
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     API_HOST=0.0.0.0
 
-# ---- Python runtime -------------------------------------------------
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
-# ---- Backend dependencies (own layer, changes rarely) ---------------
 COPY backend/requirements.txt backend/requirements.txt
-RUN pip3 install --no-cache-dir -r backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# ---- WebCMD CLI -----------------------------------------------------
-RUN npm install -g @agentrhq/webcmd@0.7.4
-
-# ---- Frontend build -------------------------------------------------
-# Dependencies first so edits to src/ don't reinstall node_modules.
-COPY frontend/package.json frontend/package-lock.json frontend/
-RUN cd frontend && npm ci
-
-COPY frontend/ frontend/
-# Empty VITE_API_URL => the app calls its own origin, which this server serves.
-RUN cd frontend && VITE_API_URL= npm run build
-
-# ---- Application code -----------------------------------------------
+# Application code
 COPY backend/ backend/
 COPY *.py ./
 
-# Uploaded resumes live here; ephemeral on most PaaS hosts.
+# Compiled UI from stage 1 — its presence is what makes the server
+# mount the SPA at "/" instead of returning the JSON status payload.
+COPY --from=frontend /build/dist frontend/dist
+
+# Uploaded resumes land here; ephemeral on most PaaS hosts.
 RUN mkdir -p uploads
 
 EXPOSE 8010
 
-CMD ["python3", "run_server.py"]
+CMD ["python", "run_server.py"]

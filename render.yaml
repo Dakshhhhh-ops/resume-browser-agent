@@ -1,19 +1,23 @@
-# Render blueprint — one web service serving both the API and the UI.
+# Render blueprint — one Python web service serving both the API and the UI.
 #
-# Deploy: push this repo, then on render.com choose
-# New > Blueprint and point it at the repository. Render reads this file,
-# builds the Dockerfile, and prompts for the secrets marked sync:false.
+# No Docker and no Node required at deploy time: frontend/dist is built
+# locally and committed, so this service only has to serve it. Rebuild and
+# commit dist/ after changing anything under frontend/src.
+#
+# Deploy: on render.com choose New > Blueprint and point it at this repo.
 services:
   - type: web
     name: resume-job-agent
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    # The browser agent needs real memory for Chromium; the free plan
-    # (512 MB) can run parse/discover/rank but will struggle to apply.
-    plan: starter
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python run_server.py
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+
       # Required — set this in the Render dashboard, never commit it.
       - key: GROQ_API_KEY
         sync: false
@@ -33,7 +37,8 @@ services:
       - key: APPLICANT_PHONE
         sync: false
 
-      # The UI is served from this same service, so no cross-origin
-      # requests occur and no CORS origins need listing.
-      - key: API_HOST
-        value: 0.0.0.0
+# Note: applying to jobs does NOT work on this service. It needs the webcmd
+# CLI plus a real Chromium, which the Python runtime has not got, so
+# /api/apply returns a clear "webcmd is not installed" error. Parsing,
+# discovery and ranking all work. Run the apply step locally, or deploy the
+# included Dockerfile on a paid instance instead.
